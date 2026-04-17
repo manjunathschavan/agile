@@ -16,7 +16,7 @@ function figmaAssetResolver() {
 }
 
 export default defineConfig(({ mode }) => ({
-  base: mode === 'production' ? '/agile/' : '/',
+  base: '/',
   plugins: [
     figmaAssetResolver(),
     react(),
@@ -27,5 +27,4 @@ export default defineConfig(({ mode }) => ({
       '@': path.resolve(__dirname, './src'),
     },
   },
-  assetsInclude: ['**/*.svg', '**/*.csv'],
 }))
