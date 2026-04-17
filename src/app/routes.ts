@@ -12,6 +12,8 @@ import { PaymentSettingsPage } from './pages/PaymentSettingsPage';
 import { LoginPage } from './pages/LoginPage';
 import { ProfilePage } from './pages/ProfilePage';
 
+const basename = import.meta.env.DEV ? '/' : '/agile/';
+
 export const router = createBrowserRouter([
   {
     path: '/login',
@@ -33,4 +35,4 @@ export const router = createBrowserRouter([
       { path: 'profile', Component: ProfilePage },
     ],
   },
-]);
+], { basename });

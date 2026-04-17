@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -21,6 +21,7 @@ import {
   Edit,
   Save,
   X,
+  Camera,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -39,6 +40,22 @@ export function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedUser, setEditedUser] = useState(user);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image must be smaller than 2MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      updateProfile({ avatar: reader.result as string });
+      toast.success('Profile picture updated!');
+    };
+    reader.readAsDataURL(file);
+  };
 
   useEffect(() => {
     if (!isAuthenticated || !user) {
@@ -66,7 +83,12 @@ export function ProfilePage() {
 
   const handleSave = () => {
     if (editedUser) {
-      updateProfile(editedUser);
+      // Regenerate avatar if name changed
+      const updatedData = {
+        ...editedUser,
+        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(editedUser.name)}`,
+      };
+      updateProfile(updatedData);
       setIsEditing(false);
       toast.success('Profile updated successfully!');
     }
@@ -111,15 +133,18 @@ export function ProfilePage() {
         <Card className="mb-6">
           <CardContent className="p-6 sm:p-8">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
-              <Avatar className="w-24 h-24 sm:w-32 sm:h-32">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback className="text-2xl sm:text-3xl">
-                  {user.name
-                    .split(' ')
-                    .map((n) => n[0])
-                    .join('')}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative group cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                <Avatar className="w-24 h-24 sm:w-32 sm:h-32">
+                  <AvatarImage src={user.avatar} alt={user.name} />
+                  <AvatarFallback className="text-2xl sm:text-3xl">
+                    {user.name.split(' ').map((n) => n[0]).join('')}
+                  </AvatarFallback>
+                </Avatar>
+                <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  <Camera className="w-6 h-6 text-white" />
+                </div>
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+              </div>
 
               <div className="flex-1">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
@@ -445,12 +470,12 @@ export function ProfilePage() {
                   Manage Payment Methods
                 </Button>
 
-                <Button variant="outline" className="w-full justify-start">
+                <Button variant="outline" className="w-full justify-start" onClick={() => toast.info('Notification preferences coming soon!')}>
                   <Settings className="w-4 h-4 mr-2" />
                   Notification Preferences
                 </Button>
 
-                <Button variant="outline" className="w-full justify-start">
+                <Button variant="outline" className="w-full justify-start" onClick={() => window.location.href = `mailto:${user?.email}`}>
                   <Mail className="w-4 h-4 mr-2" />
                   Email Settings
                 </Button>

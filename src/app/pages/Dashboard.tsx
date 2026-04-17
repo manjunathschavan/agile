@@ -19,9 +19,12 @@ import {
   Cell,
 } from 'recharts';
 import { Badge } from '../components/ui/badge';
+import { useAuth } from '../contexts/AuthContext';
 
 export function Dashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.role === 'club-admin' || user?.email?.endsWith('@college.edu.in');
   const upcomingEvents = mockEvents.filter((e) => e.status === 'upcoming').slice(0, 3);
   const [totalRevenue, setTotalRevenue] = useState(0);
 
@@ -31,7 +34,7 @@ export function Dashboard() {
     setTotalRevenue(revenue);
   }, []);
 
-  const stats = [
+  const studentStats = [
     {
       title: 'Total Events',
       value: mockStats.totalEvents,
@@ -49,14 +52,6 @@ export function Dashboard() {
       subtitle: 'Student organizations',
     },
     {
-      title: 'Total Revenue',
-      value: `₹${totalRevenue.toFixed(2)}`,
-      icon: DollarSign,
-      color: 'text-green-600',
-      bgColor: 'bg-green-100',
-      subtitle: 'From paid events',
-    },
-    {
       title: 'Active Members',
       value: mockStats.activeMemberships,
       icon: UserCheck,
@@ -65,6 +60,20 @@ export function Dashboard() {
       subtitle: 'Club memberships',
     },
   ];
+
+  const adminStats = [
+    ...studentStats,
+    {
+      title: 'Total Revenue',
+      value: `₹${totalRevenue.toFixed(2)}`,
+      icon: DollarSign,
+      color: 'text-green-600',
+      bgColor: 'bg-green-100',
+      subtitle: 'From paid events',
+    },
+  ];
+
+  const stats = isAdmin ? adminStats : studentStats;
 
   const eventsByCategory = [
     { category: 'Workshop', count: 8, color: '#3b82f6' },

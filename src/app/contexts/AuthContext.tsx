@@ -18,123 +18,115 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<boolean>;
+  signup: (name: string, email: string, password: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;
   updateProfile: (userData: Partial<User>) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock users for demonstration
-const mockUsers: Record<string, { password: string; user: User }> = {
-  'priya.sharma@college.edu': {
-    password: 'password123',
-    user: {
-      id: 'USER001',
-      name: 'Priya Sharma',
-      email: 'priya.sharma@college.edu',
-      studentId: 'S2023045',
-      department: 'Computer Science',
-      year: 'Third Year',
-      phone: '+91 98765 43210',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Priya',
-      role: 'student',
-      clubs: ['Computer Science Society', 'Drama Club'],
-      joinDate: '2023-08-15',
-    },
-  },
-  'rahul.kumar@college.edu': {
-    password: 'password123',
-    user: {
-      id: 'USER002',
-      name: 'Rahul Kumar',
-      email: 'rahul.kumar@college.edu',
-      studentId: 'S2022123',
-      department: 'Electrical Engineering',
-      year: 'Fourth Year',
-      phone: '+91 87654 32109',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Rahul',
-      role: 'club-admin',
-      clubs: ['Photography Club', 'Environmental Action Group'],
-      joinDate: '2022-08-10',
-    },
-  },
-  'admin@college.edu': {
-    password: 'admin123',
-    user: {
-      id: 'ADMIN001',
-      name: 'Admin User',
-      email: 'admin@college.edu',
-      studentId: 'ADMIN001',
-      department: 'Administration',
-      year: 'Staff',
-      phone: '+91 76543 21098',
-      avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Admin',
-      role: 'admin',
-      clubs: ['All Clubs'],
-      joinDate: '2020-01-01',
-    },
-  },
-};
+const USERS_KEY = 'registeredUsers';
+const SESSION_KEY = 'currentUser';
+
+function getRegisteredUsers(): Record<string, { password: string; user: User }> {
+  try {
+    return JSON.parse(localStorage.getItem(USERS_KEY) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function saveRegisteredUsers(users: Record<string, { password: string; user: User }>) {
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check for stored session on mount
-    const storedUser = localStorage.getItem('currentUser');
+    const storedUser = localStorage.getItem(SESSION_KEY);
     if (storedUser) {
       try {
         const userData = JSON.parse(storedUser);
         setUser(userData);
         setIsAuthenticated(true);
-      } catch (error) {
-        console.error('Failed to parse stored user:', error);
-        localStorage.removeItem('currentUser');
+      } catch {
+        localStorage.removeItem(SESSION_KEY);
       }
     }
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Simulate API call delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    const userRecord = mockUsers[email.toLowerCase()];
-
-    if (userRecord && userRecord.password === password) {
-      setUser(userRecord.user);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    const users = getRegisteredUsers();
+    const record = users[email.toLowerCase()];
+    if (record && record.password === password) {
+      // Always use latest profile data from store
+      const latestUser = record.user;
+      setUser(latestUser);
       setIsAuthenticated(true);
-      localStorage.setItem('currentUser', JSON.stringify(userRecord.user));
+      localStorage.setItem(SESSION_KEY, JSON.stringify(latestUser));
       return true;
     }
-
     return false;
+  };
+
+  const signup = async (
+    name: string,
+    email: string,
+    password: string
+  ): Promise<{ success: boolean; message: string }> => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    const users = getRegisteredUsers();
+    const key = email.toLowerCase();
+    if (users[key]) {
+      return { success: false, message: 'An account with this email already exists.' };
+    }
+    const newUser: User = {
+      id: `USER-${Date.now()}`,
+      name,
+      email: key,
+      studentId: `S${Date.now().toString().slice(-6)}`,
+      department: '',
+      year: '',
+      phone: '',
+      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(name)}`,
+      role: 'student',
+      clubs: [],
+      joinDate: new Date().toISOString().split('T')[0],
+    };
+    users[key] = { password, user: newUser };
+    saveRegisteredUsers(users);
+    setUser(newUser);
+    setIsAuthenticated(true);
+    localStorage.setItem(SESSION_KEY, JSON.stringify(newUser));
+    return { success: true, message: 'Account created successfully!' };
   };
 
   const logout = () => {
     setUser(null);
     setIsAuthenticated(false);
-    localStorage.removeItem('currentUser');
+    localStorage.removeItem(SESSION_KEY);
   };
 
   const updateProfile = (userData: Partial<User>) => {
     if (user) {
       const updatedUser = { ...user, ...userData };
       setUser(updatedUser);
-      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+      localStorage.setItem(SESSION_KEY, JSON.stringify(updatedUser));
+      // Also update in the registered users store
+      const users = getRegisteredUsers();
+      const key = updatedUser.email.toLowerCase();
+      if (users[key]) {
+        users[key].user = updatedUser;
+        saveRegisteredUsers(users);
+      }
     }
   };
 
   return (
-    <AuthContext.Provider
-      value={{
-        user,
-        isAuthenticated,
-        login,
-        logout,
-        updateProfile,
-      }}
-    >
+    <AuthContext.Provider value={{ user, isAuthenticated, login, signup, logout, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );
@@ -142,8 +134,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (context === undefined) throw new Error('useAuth must be used within an AuthProvider');
   return context;
 }

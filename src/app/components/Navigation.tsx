@@ -47,9 +47,31 @@ export function Navigation() {
     <>
       {/* Desktop Sidebar */}
       <aside className="hidden md:flex md:flex-col w-64 border-r bg-card min-h-screen">
-        <div className="p-6 border-b">
-          <h1 className="text-2xl font-bold">ClubHub</h1>
-          <p className="text-sm text-muted-foreground">College Event Manager</p>
+        {/* Profile Section at Top */}
+        <div className="p-6 border-b flex flex-col items-center text-center gap-2">
+          {isAuthenticated && user ? (
+            <>
+              <Avatar className="w-16 h-16 ring-2 ring-primary ring-offset-2">
+                <AvatarImage src={user.avatar} alt={user.name} />
+                <AvatarFallback className="text-xl">
+                  {user.name.split(' ').map(n => n[0]).join('')}
+                </AvatarFallback>
+              </Avatar>
+              <div>
+                <p className="font-semibold text-sm">{user.name}</p>
+                <p className="text-xs text-muted-foreground truncate max-w-[180px]">{user.email}</p>
+              </div>
+              <Button variant="outline" size="sm" className="w-full text-xs" onClick={() => navigate('/profile')}>
+                <UserIcon className="w-3 h-3 mr-1" />
+                View Profile
+              </Button>
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold">ClubHub</h1>
+              <p className="text-sm text-muted-foreground">College Event Manager</p>
+            </>
+          )}
         </div>
         <nav className="flex-1 p-4 space-y-2">
           {navItems.map((item) => (
@@ -71,48 +93,13 @@ export function Navigation() {
               Create Event
             </Button>
           </Link>
-
-          {/* User Profile Section */}
-          {isAuthenticated && user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="w-full flex items-center gap-3 p-3 rounded-lg hover:bg-muted transition-colors">
-                  <Avatar className="w-9 h-9">
-                    <AvatarImage src={user.avatar} alt={user.name} />
-                    <AvatarFallback>
-                      {user.name.split(' ').map(n => n[0]).join('')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 text-left">
-                    <p className="text-sm font-semibold truncate">{user.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{user.email}</p>
-                  </div>
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end">
-                <DropdownMenuLabel>My Account</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate('/profile')}>
-                  <UserIcon className="w-4 h-4 mr-2" />
-                  Profile
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate('/payment-settings')}>
-                  <CreditCard className="w-4 h-4 mr-2" />
-                  Payment Settings
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-600">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+          {isAuthenticated ? (
+            <Button variant="outline" className="w-full text-red-600 hover:text-red-700" onClick={handleLogout}>
+              <LogOut className="w-4 h-4 mr-2" />
+              Logout
+            </Button>
           ) : (
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => navigate('/login')}
-            >
+            <Button variant="outline" className="w-full" onClick={() => navigate('/login')}>
               <UserIcon className="w-4 h-4 mr-2" />
               Sign In
             </Button>

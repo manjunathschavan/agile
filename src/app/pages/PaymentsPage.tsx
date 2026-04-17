@@ -23,6 +23,7 @@ import {
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router';
 import { initialTransactions } from '../data/mockData';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Transaction {
   id: string;
@@ -36,6 +37,8 @@ interface Transaction {
 
 export function PaymentsPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin' || user?.role === 'club-admin' || user?.email?.endsWith('@college.edu.in');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
@@ -128,7 +131,36 @@ support@clubhub.edu
           </p>
         </div>
 
-        {/* Stats Cards */}
+        {/* Avg Transaction — Student view */}
+        {!isAdmin && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4 sm:p-6">
+                <CardTitle className="text-sm font-medium">Avg Transaction</CardTitle>
+                <ArrowUpDown className="w-4 h-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6 pt-0">
+                <div className="text-xl sm:text-2xl font-bold">
+                  ₹{transactions.length > 0 ? (totalRevenue / transactions.length).toFixed(2) : '0.00'}
+                </div>
+                <p className="text-xs text-muted-foreground">Per payment</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4 sm:p-6">
+                <CardTitle className="text-sm font-medium">My Transactions</CardTitle>
+                <CreditCard className="w-4 h-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent className="p-4 sm:p-6 pt-0">
+                <div className="text-xl sm:text-2xl font-bold">{transactions.length}</div>
+                <p className="text-xs text-muted-foreground">Total payments made</p>
+              </CardContent>
+            </Card>
+          </div>
+        )}
+
+        {/* Stats Cards — Admin only */}
+        {isAdmin && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 p-4 sm:p-6">
@@ -180,6 +212,7 @@ support@clubhub.edu
             </CardContent>
           </Card>
         </div>
+        )}
 
         {/* Filters */}
         <Card className="mb-6 sm:mb-8">

@@ -20,6 +20,7 @@ import { format } from 'date-fns';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { PaymentDialog } from '../components/PaymentDialog';
 import { useState } from 'react';
+import { toast } from 'sonner';
 
 export function EventDetailPage() {
   const { id } = useParams();
@@ -41,7 +42,29 @@ export function EventDetailPage() {
 
   const handlePaymentSuccess = (transactionId: string) => {
     setIsRegistered(true);
-    console.log('Payment successful:', transactionId);
+    toast.success(`Registered! Transaction ID: ${transactionId}`);
+  };
+
+  const handleShare = () => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url);
+    toast.success('Event link copied to clipboard!');
+  };
+
+  const handleEdit = () => {
+    navigate(`/create-event`);
+    toast.info('Redirected to event editor');
+  };
+
+  const handleDelete = () => {
+    if (confirm(`Delete "${event?.title}"? This cannot be undone.`)) {
+      toast.success('Event deleted successfully');
+      navigate('/events');
+    }
+  };
+
+  const handleContactOrganizer = () => {
+    window.location.href = `mailto:organizer@college.edu?subject=Query about ${event?.title}`;
   };
 
   const handleRegisterClick = () => {
@@ -97,16 +120,17 @@ export function EventDetailPage() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="icon" className="h-8 w-8 sm:h-10 sm:w-10">
+                    <Button variant="outline" size="icon" className="h-8 w-8 sm:h-10 sm:w-10" onClick={handleShare}>
                       <Share2 className="w-3 h-3 sm:w-4 sm:h-4" />
                     </Button>
-                    <Button variant="outline" size="icon" className="h-8 w-8 sm:h-10 sm:w-10">
+                    <Button variant="outline" size="icon" className="h-8 w-8 sm:h-10 sm:w-10" onClick={handleEdit}>
                       <Edit className="w-3 h-3 sm:w-4 sm:h-4" />
                     </Button>
                     <Button
                       variant="outline"
                       size="icon"
                       className="text-red-600 hover:text-red-700 h-8 w-8 sm:h-10 sm:w-10"
+                      onClick={handleDelete}
                     >
                       <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
                     </Button>
@@ -284,7 +308,7 @@ export function EventDetailPage() {
                     {event.requiresRSVP ? 'RSVP Now' : 'Register'}
                   </Button>
                 )}
-                <Button variant="outline" className="w-full text-sm sm:text-base">
+                <Button variant="outline" className="w-full text-sm sm:text-base" onClick={handleContactOrganizer}>
                   <Mail className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                   Contact Organizer
                 </Button>

@@ -26,6 +26,9 @@ import { toast } from 'sonner';
 import { Attendee } from '../types/event';
 import { AddAttendeeDialog } from '../components/AddAttendeeDialog';
 import { ViewAttendeeDialog } from '../components/ViewAttendeeDialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
 
 export function AttendeesPage() {
   const [searchQuery, setSearchQuery] = useState('');
@@ -33,6 +36,9 @@ export function AttendeesPage() {
   const [yearFilter, setYearFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [viewingAttendee, setViewingAttendee] = useState<Attendee | null>(null);
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody] = useState('');
 
   // Generate more attendees for display
   const [allAttendees, setAllAttendees] = useState(
@@ -67,6 +73,34 @@ export function AttendeesPage() {
 
   const handleView = (attendee: Attendee) => {
     setViewingAttendee(attendee);
+  };
+
+  const handleEmailAll = () => setIsEmailDialogOpen(true);
+
+  const handleSendEmail = () => {
+    if (!emailSubject || !emailBody) { toast.error('Please fill in subject and message'); return; }
+    const bcc = filteredAttendees.map(a => a.email).join(',');
+    const subject = encodeURIComponent(emailSubject);
+    const body = encodeURIComponent(emailBody);
+    window.open(`mailto:?bcc=${bcc}&subject=${subject}&body=${body}`, '_blank');
+    toast.success(`Email client opened with ${filteredAttendees.length} recipients!`);
+    setIsEmailDialogOpen(false); setEmailSubject(''); setEmailBody('');
+  };
+
+  const handleExport = () => {
+    const headers = 'Name,Email,Student ID,Major,Year,Ticket Type,Status,Registration Date';
+    const rows = allAttendees.map(a =>
+      `${a.name},${a.email},${a.studentId},${a.major},${a.year},${a.ticketType},${a.checkInStatus},${a.registrationDate}`
+    );
+    const csv = [headers, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'attendees.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Attendees exported!');
   };
 
   const handleAddAttendee = (
@@ -171,12 +205,12 @@ export function AttendeesPage() {
                 <span className="hidden sm:inline">Add Attendee</span>
                 <span className="sm:hidden">Add</span>
               </Button>
-              <Button variant="outline" className="w-full sm:w-auto text-sm sm:text-base">
+              <Button variant="outline" className="w-full sm:w-auto text-sm sm:text-base" onClick={handleEmailAll}>
                 <Mail className="w-4 h-4 mr-2" />
                 <span className="hidden sm:inline">Email All</span>
                 <span className="sm:hidden">Email</span>
               </Button>
-              <Button variant="outline" className="w-full sm:w-auto text-sm sm:text-base">
+              <Button variant="outline" className="w-full sm:w-auto text-sm sm:text-base" onClick={handleExport}>
                 <Download className="w-4 h-4 mr-2" />
                 <span className="hidden sm:inline">Export</span>
                 <span className="sm:hidden">Export</span>
@@ -392,6 +426,34 @@ export function AttendeesPage() {
         onOpenChange={(open) => !open && setViewingAttendee(null)}
         attendee={viewingAttendee}
       />
+
+      {/* Email All Dialog */}
+      <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
+        <DialogContent className="sm:max-w-[480px]">
+          <DialogHeader>
+            <DialogTitle>Email All Attendees ({filteredAttendees.length})</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This will open your email client with all {filteredAttendees.length} attendees in BCC.
+            </p>
+            <div className="space-y-2">
+              <Label>Subject</Label>
+              <Input placeholder="e.g. Important Event Update" value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Message</Label>
+              <Textarea placeholder="Write your announcement or update here..." rows={5} value={emailBody} onChange={(e) => setEmailBody(e.target.value)} />
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setIsEmailDialogOpen(false)}>Cancel</Button>
+              <Button className="flex-1" onClick={handleSendEmail}>
+                <Mail className="w-4 h-4 mr-2" />Send to All
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

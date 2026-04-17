@@ -4,9 +4,32 @@ import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import { Users, Mail, DollarSign } from 'lucide-react';
 import { useNavigate } from 'react-router';
+import { toast } from 'sonner';
+import { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
 
 export function ClubsPage() {
   const navigate = useNavigate();
+  const [contactClub, setContactClub] = useState<{ name: string } | null>(null);
+  const [senderEmail, setSenderEmail] = useState('');
+  const [message, setMessage] = useState('');
+
+  const handleRegisterClub = () => toast.info('Club registration form coming soon!');
+  const handleManageMembers = () => navigate('/attendees');
+  const handleBudgetAllocation = () => navigate('/payments');
+  const handleSendAnnouncement = () => toast.info('Announcement feature coming soon!');
+
+  const handleContactSubmit = () => {
+    if (!senderEmail || !message) { toast.error('Please fill in all fields'); return; }
+    const subject = encodeURIComponent(`Inquiry about ${contactClub?.name}`);
+    const body = encodeURIComponent(`From: ${senderEmail}\n\n${message}`);
+    window.open(`mailto:clubadmin@college.edu?subject=${subject}&body=${body}`, '_blank');
+    toast.success('Email client opened!');
+    setContactClub(null); setSenderEmail(''); setMessage('');
+  };
 
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
@@ -28,7 +51,7 @@ export function ClubsPage() {
             Discover and manage all registered student organizations
           </p>
         </div>
-        <Button className="w-full sm:w-auto text-sm sm:text-base">Register New Club</Button>
+        <Button className="w-full sm:w-auto text-sm sm:text-base" onClick={handleRegisterClub}>Register New Club</Button>
       </div>
 
       {/* Stats Overview */}
@@ -132,6 +155,7 @@ export function ClubsPage() {
                 <Button
                   variant="outline"
                   className="w-full text-sm sm:text-base"
+                  onClick={() => setContactClub({ name: club.name })}
                 >
                   <Mail className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                   Contact Club
@@ -149,21 +173,46 @@ export function ClubsPage() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-            <Button variant="outline" className="h-auto py-3 sm:py-4 flex-col gap-2 text-sm sm:text-base">
+            <Button variant="outline" className="h-auto py-3 sm:py-4 flex-col gap-2 text-sm sm:text-base" onClick={handleManageMembers}>
               <Users className="w-5 h-5 sm:w-6 sm:h-6" />
               <span>Manage Members</span>
             </Button>
-            <Button variant="outline" className="h-auto py-3 sm:py-4 flex-col gap-2 text-sm sm:text-base">
+            <Button variant="outline" className="h-auto py-3 sm:py-4 flex-col gap-2 text-sm sm:text-base" onClick={handleBudgetAllocation}>
               <DollarSign className="w-5 h-5 sm:w-6 sm:h-6" />
               <span>Budget Allocation</span>
             </Button>
-            <Button variant="outline" className="h-auto py-3 sm:py-4 flex-col gap-2 text-sm sm:text-base">
+            <Button variant="outline" className="h-auto py-3 sm:py-4 flex-col gap-2 text-sm sm:text-base" onClick={handleSendAnnouncement}>
               <Mail className="w-5 h-5 sm:w-6 sm:h-6" />
               <span>Send Announcement</span>
             </Button>
           </div>
         </CardContent>
       </Card>
+
+      {/* Contact Club Dialog */}
+      <Dialog open={!!contactClub} onOpenChange={(o) => !o && setContactClub(null)}>
+        <DialogContent className="sm:max-w-[420px]">
+          <DialogHeader>
+            <DialogTitle>Contact {contactClub?.name}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Your Email</Label>
+              <Input placeholder="your@email.com" value={senderEmail} onChange={(e) => setSenderEmail(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Message</Label>
+              <Textarea placeholder="Write your message to the club admin..." rows={4} value={message} onChange={(e) => setMessage(e.target.value)} />
+            </div>
+            <div className="flex gap-3">
+              <Button variant="outline" className="flex-1" onClick={() => setContactClub(null)}>Cancel</Button>
+              <Button className="flex-1" onClick={handleContactSubmit}>
+                <Mail className="w-4 h-4 mr-2" />Send Email
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

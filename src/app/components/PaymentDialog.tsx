@@ -1,10 +1,6 @@
 import { useState } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from './ui/dialog';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -12,6 +8,10 @@ import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { CreditCard, Wallet, Loader2, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useAuth } from '../contexts/AuthContext';
+
+const ADMIN_EMAIL = 'admin@clubhub.edu';
+const UPI_ID = 'clubhub@upi'; // replace with real UPI ID
 
 interface PaymentDialogProps {
   open: boolean;
@@ -23,306 +23,254 @@ interface PaymentDialogProps {
 }
 
 export function PaymentDialog({
-  open,
-  onOpenChange,
-  eventTitle,
-  amount,
-  eventId,
-  onPaymentSuccess,
+  open, onOpenChange, eventTitle, amount, eventId, onPaymentSuccess,
 }: PaymentDialogProps) {
-  const [paymentMethod, setPaymentMethod] = useState('card');
+  const { user } = useAuth();
+  const [paymentMethod, setPaymentMethod] = useState('upi');
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentComplete, setPaymentComplete] = useState(false);
   const [transactionId, setTransactionId] = useState('');
+  const [upiRef, setUpiRef] = useState('');
 
+  // Card fields
   const [cardNumber, setCardNumber] = useState('');
   const [cardName, setCardName] = useState('');
   const [expiryDate, setExpiryDate] = useState('');
   const [cvv, setCvv] = useState('');
 
-  const formatCardNumber = (value: string) => {
-    const cleaned = value.replace(/\s/g, '');
-    const chunks = cleaned.match(/.{1,4}/g);
-    return chunks ? chunks.join(' ') : cleaned;
+  const total = amount * 1.02;
+
+  // UPI QR — uses UPI deep link encoded as QR via a free QR API
+  const upiLink = `upi://pay?pa=${UPI_ID}&pn=ClubHub&am=${total.toFixed(2)}&cu=INR&tn=${encodeURIComponent(eventTitle)}`;
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiLink)}`;
+
+  const formatCardNumber = (v: string) => {
+    const c = v.replace(/\s/g, '');
+    return (c.match(/.{1,4}/g) || [c]).join(' ');
   };
 
-  const formatExpiryDate = (value: string) => {
-    const cleaned = value.replace(/\D/g, '');
-    if (cleaned.length >= 2) {
-      return `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}`;
-    }
-    return cleaned;
+  const formatExpiry = (v: string) => {
+    const c = v.replace(/\D/g, '');
+    return c.length >= 2 ? `${c.slice(0, 2)}/${c.slice(2, 4)}` : c;
   };
 
-  const handleCardNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\s/g, '');
-    if (value.length <= 16) {
-      setCardNumber(formatCardNumber(value));
-    }
+  const notifyAdmin = (txId: string, method: string) => {
+    const subject = encodeURIComponent(`Payment Received: ${eventTitle}`);
+    const body = encodeURIComponent(
+      `Payment Notification\n\n` +
+      `Event: ${eventTitle}\n` +
+      `Student: ${user?.name || 'Unknown'} (${user?.email || 'N/A'})\n` +
+      `Amount: ₹${total.toFixed(2)}\n` +
+      `Method: ${method}\n` +
+      `Transaction ID: ${txId}\n` +
+      `Date: ${new Date().toLocaleString()}\n\n` +
+      `Please confirm this payment in the system.`
+    );
+    window.open(`mailto:${ADMIN_EMAIL}?subject=${subject}&body=${body}`, '_blank');
   };
 
-  const handleExpiryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '');
-    if (value.length <= 4) {
-      setExpiryDate(formatExpiryDate(value));
-    }
+  const saveTransaction = (txId: string, method: string) => {
+    const transactions = JSON.parse(localStorage.getItem('transactions') || '[]');
+    transactions.unshift({
+      id: txId,
+      eventId,
+      eventTitle,
+      amount: total,
+      paymentMethod: method,
+      date: new Date().toISOString(),
+      status: 'completed',
+    });
+    localStorage.setItem('transactions', JSON.stringify(transactions));
   };
 
-  const handleCvvChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value.replace(/\D/g, '');
-    if (value.length <= 3) {
-      setCvv(value);
-    }
-  };
-
-  const handlePayment = async (e: React.FormEvent) => {
+  const handleCardPayment = (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (paymentMethod === 'card') {
-      if (!cardNumber || !cardName || !expiryDate || !cvv) {
-        toast.error('Please fill in all card details');
-        return;
-      }
-
-      if (cardNumber.replace(/\s/g, '').length !== 16) {
-        toast.error('Please enter a valid 16-digit card number');
-        return;
-      }
-
-      if (cvv.length !== 3) {
-        toast.error('Please enter a valid 3-digit CVV');
-        return;
-      }
+    if (!cardNumber || !cardName || !expiryDate || !cvv) {
+      toast.error('Please fill in all card details');
+      return;
     }
-
+    if (cardNumber.replace(/\s/g, '').length !== 16) {
+      toast.error('Enter a valid 16-digit card number');
+      return;
+    }
     setIsProcessing(true);
-
-    // Simulate payment processing
     setTimeout(() => {
-      const txId = `TXN${Date.now()}${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+      const txId = `TXN${Date.now()}`;
       setTransactionId(txId);
       setPaymentComplete(true);
       setIsProcessing(false);
-
-      toast.success('Payment processed successfully!');
-
-      if (onPaymentSuccess) {
-        onPaymentSuccess(txId);
-      }
-
-      // Store transaction in localStorage
-      const transactions = JSON.parse(localStorage.getItem('transactions') || '[]');
-      transactions.unshift({
-        id: txId,
-        eventId,
-        eventTitle,
-        amount: amount * 1.02, // Include processing fee
-        paymentMethod: paymentMethod === 'card' ? 'Credit/Debit Card' : 'UPI / Digital Wallet',
-        date: new Date().toISOString(),
-        status: 'completed',
-      });
-      localStorage.setItem('transactions', JSON.stringify(transactions));
+      saveTransaction(txId, 'Credit/Debit Card');
+      toast.success('Payment successful!');
+      onPaymentSuccess?.(txId);
+      notifyAdmin(txId, 'Credit/Debit Card');
     }, 2000);
+  };
+
+  const handleUpiConfirm = () => {
+    if (!upiRef.trim()) {
+      toast.error('Please enter your UPI transaction reference number');
+      return;
+    }
+    const txId = `UPI${upiRef.trim().toUpperCase()}`;
+    setTransactionId(txId);
+    setPaymentComplete(true);
+    saveTransaction(txId, 'UPI');
+    toast.success('Payment submitted for confirmation!');
+    onPaymentSuccess?.(txId);
+    notifyAdmin(txId, 'UPI');
   };
 
   const handleClose = () => {
     onOpenChange(false);
     setTimeout(() => {
       setPaymentComplete(false);
-      setCardNumber('');
-      setCardName('');
-      setExpiryDate('');
-      setCvv('');
-      setPaymentMethod('card');
+      setCardNumber(''); setCardName(''); setExpiryDate(''); setCvv('');
+      setUpiRef(''); setPaymentMethod('upi');
     }, 300);
   };
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] max-h-[90vh] overflow-y-auto">
         {!paymentComplete ? (
           <>
             <DialogHeader>
-              <DialogTitle className="text-xl sm:text-2xl">Payment</DialogTitle>
-              <DialogDescription className="text-sm sm:text-base">
-                Complete your registration for {eventTitle}
-              </DialogDescription>
+              <DialogTitle className="text-xl">Complete Payment</DialogTitle>
+              <DialogDescription>Register for {eventTitle}</DialogDescription>
             </DialogHeader>
 
-            <form onSubmit={handlePayment} className="space-y-4 sm:space-y-6">
-              {/* Amount Display */}
-              <div className="p-3 sm:p-4 bg-muted rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm sm:text-base text-muted-foreground">Registration Fee</span>
-                  <span className="text-xl sm:text-2xl font-bold">₹{amount.toFixed(2)}</span>
+            {/* Amount */}
+            <div className="p-4 bg-muted rounded-lg space-y-1">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Registration Fee</span>
+                <span>₹{amount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Processing Fee (2%)</span>
+                <span>₹{(amount * 0.02).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between font-bold pt-1 border-t">
+                <span>Total</span>
+                <span>₹{total.toFixed(2)}</span>
+              </div>
+            </div>
+
+            {/* Method Toggle */}
+            <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid grid-cols-2 gap-3">
+              <div className={`flex items-center gap-2 p-3 border rounded-lg cursor-pointer ${paymentMethod === 'upi' ? 'border-primary bg-primary/5' : ''}`}
+                onClick={() => setPaymentMethod('upi')}>
+                <RadioGroupItem value="upi" id="upi" />
+                <Label htmlFor="upi" className="cursor-pointer">
+                  <Wallet className="w-4 h-4 text-purple-600 mb-1" />
+                  <span className="text-sm font-semibold block">UPI / QR</span>
+                  <span className="text-xs text-muted-foreground">GPay, Paytm, PhonePe</span>
+                </Label>
+              </div>
+              <div className={`flex items-center gap-2 p-3 border rounded-lg cursor-pointer ${paymentMethod === 'card' ? 'border-primary bg-primary/5' : ''}`}
+                onClick={() => setPaymentMethod('card')}>
+                <RadioGroupItem value="card" id="card" />
+                <Label htmlFor="card" className="cursor-pointer">
+                  <CreditCard className="w-4 h-4 text-blue-600 mb-1" />
+                  <span className="text-sm font-semibold block">Card</span>
+                  <span className="text-xs text-muted-foreground">Visa, Mastercard, RuPay</span>
+                </Label>
+              </div>
+            </RadioGroup>
+
+            {/* UPI Flow */}
+            {paymentMethod === 'upi' && (
+              <div className="space-y-4">
+                <div className="flex flex-col items-center gap-3 p-4 border rounded-lg bg-muted">
+                  <p className="text-sm font-semibold">Scan QR to Pay ₹{total.toFixed(2)}</p>
+                  <img src={qrUrl} alt="UPI QR Code" className="w-48 h-48 rounded-lg border bg-white p-2" />
+                  <p className="text-xs text-muted-foreground">UPI ID: <span className="font-mono font-semibold">{UPI_ID}</span></p>
+                  <div className="flex gap-2 text-xs text-muted-foreground">
+                    <span>Google Pay</span>•<span>PhonePe</span>•<span>Paytm</span>•<span>Any UPI App</span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center mt-2 text-sm">
-                  <span className="text-muted-foreground">Processing Fee (2%)</span>
-                  <span className="font-semibold">₹{(amount * 0.02).toFixed(2)}</span>
+                <div className="space-y-2">
+                  <Label htmlFor="upiRef">Enter UPI Transaction Reference No. after payment</Label>
+                  <Input id="upiRef" placeholder="e.g. 123456789012" value={upiRef}
+                    onChange={(e) => setUpiRef(e.target.value)} />
                 </div>
-                <div className="flex justify-between items-center mt-2 pt-2 border-t">
-                  <span className="text-sm sm:text-base font-semibold">Total Amount</span>
-                  <span className="text-xl sm:text-2xl font-bold">₹{(amount * 1.02).toFixed(2)}</span>
+                <div className="flex gap-3">
+                  <Button variant="outline" className="flex-1" onClick={handleClose}>Cancel</Button>
+                  <Button className="flex-1" onClick={handleUpiConfirm}>Confirm Payment</Button>
                 </div>
               </div>
+            )}
 
-              {/* Payment Method Selection */}
-              <div className="space-y-3">
-                <Label className="text-sm sm:text-base">Payment Method</Label>
-                <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod}>
-                  <div className="flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:bg-muted">
-                    <RadioGroupItem value="card" id="card" />
-                    <Label htmlFor="card" className="flex items-center gap-2 cursor-pointer flex-1">
-                      <CreditCard className="w-5 h-5 text-blue-600" />
-                      <div className="flex-1">
-                        <span className="text-sm sm:text-base font-semibold block">Credit / Debit Card</span>
-                        <span className="text-xs text-muted-foreground">Visa, Mastercard, RuPay</span>
-                      </div>
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2 p-3 border rounded-lg cursor-pointer hover:bg-muted">
-                    <RadioGroupItem value="wallet" id="wallet" />
-                    <Label htmlFor="wallet" className="flex items-center gap-2 cursor-pointer flex-1">
-                      <Wallet className="w-5 h-5 text-purple-600" />
-                      <div className="flex-1">
-                        <span className="text-sm sm:text-base font-semibold block">Digital Wallet / UPI</span>
-                        <span className="text-xs text-muted-foreground">PhonePe, Google Pay, Paytm, UPI</span>
-                      </div>
-                    </Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
-              {/* Card Payment Form */}
-              {paymentMethod === 'card' && (
-                <div className="space-y-3 sm:space-y-4">
+            {/* Card Flow */}
+            {paymentMethod === 'card' && (
+              <form onSubmit={handleCardPayment} className="space-y-3">
+                <div className="space-y-2">
+                  <Label>Card Number</Label>
+                  <Input placeholder="1234 5678 9012 3456" value={cardNumber}
+                    onChange={(e) => { const v = e.target.value.replace(/\s/g, ''); if (v.length <= 16) setCardNumber(formatCardNumber(v)); }}
+                    disabled={isProcessing} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Cardholder Name</Label>
+                  <Input placeholder="Name on card" value={cardName}
+                    onChange={(e) => setCardName(e.target.value)} disabled={isProcessing} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
-                    <Label htmlFor="cardNumber" className="text-sm">Card Number</Label>
-                    <Input
-                      id="cardNumber"
-                      placeholder="1234 5678 9012 3456"
-                      value={cardNumber}
-                      onChange={handleCardNumberChange}
-                      className="text-sm sm:text-base"
-                      disabled={isProcessing}
-                    />
+                    <Label>Expiry</Label>
+                    <Input placeholder="MM/YY" value={expiryDate}
+                      onChange={(e) => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= 4) setExpiryDate(formatExpiry(v)); }}
+                      disabled={isProcessing} />
                   </div>
-
                   <div className="space-y-2">
-                    <Label htmlFor="cardName" className="text-sm">Cardholder Name</Label>
-                    <Input
-                      id="cardName"
-                      placeholder="Cardholder Name"
-                      value={cardName}
-                      onChange={(e) => setCardName(e.target.value)}
-                      className="text-sm sm:text-base"
-                      disabled={isProcessing}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="expiry" className="text-sm">Expiry Date</Label>
-                      <Input
-                        id="expiry"
-                        placeholder="MM/YY"
-                        value={expiryDate}
-                        onChange={handleExpiryChange}
-                        className="text-sm sm:text-base"
-                        disabled={isProcessing}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cvv" className="text-sm">CVV</Label>
-                      <Input
-                        id="cvv"
-                        placeholder="123"
-                        type="password"
-                        value={cvv}
-                        onChange={handleCvvChange}
-                        className="text-sm sm:text-base"
-                        disabled={isProcessing}
-                      />
-                    </div>
+                    <Label>CVV</Label>
+                    <Input placeholder="123" type="password" value={cvv}
+                      onChange={(e) => { const v = e.target.value.replace(/\D/g, ''); if (v.length <= 3) setCvv(v); }}
+                      disabled={isProcessing} />
                   </div>
                 </div>
-              )}
-
-              {/* Wallet Payment */}
-              {paymentMethod === 'wallet' && (
-                <div className="p-4 border rounded-lg text-center space-y-3 bg-muted">
-                  <Wallet className="w-12 h-12 mx-auto text-purple-600" />
-                  <div>
-                    <p className="text-sm font-semibold mb-1">UPI / Digital Wallet Payment</p>
-                    <p className="text-sm text-muted-foreground">
-                      You will be redirected to complete the payment of ₹{(amount * 1.02).toFixed(2)} through your preferred UPI app or digital wallet
-                    </p>
-                  </div>
+                <div className="flex gap-3 pt-2">
+                  <Button type="button" variant="outline" className="flex-1" onClick={handleClose} disabled={isProcessing}>Cancel</Button>
+                  <Button type="submit" className="flex-1" disabled={isProcessing}>
+                    {isProcessing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing...</> : `Pay ₹${total.toFixed(2)}`}
+                  </Button>
                 </div>
-              )}
-
-              {/* Action Buttons */}
-              <div className="flex gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="flex-1 text-sm sm:text-base"
-                  onClick={handleClose}
-                  disabled={isProcessing}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="submit"
-                  className="flex-1 text-sm sm:text-base"
-                  disabled={isProcessing}
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    `Pay ₹${(amount * 1.02).toFixed(2)}`
-                  )}
-                </Button>
-              </div>
-            </form>
+              </form>
+            )}
           </>
         ) : (
           <div className="text-center py-6 space-y-4">
-            <div className="flex justify-center">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircle2 className="w-10 h-10 text-green-600" />
-              </div>
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto">
+              <CheckCircle2 className="w-10 h-10 text-green-600" />
             </div>
             <div>
-              <h3 className="text-xl sm:text-2xl font-bold mb-2">Payment Successful!</h3>
-              <p className="text-sm sm:text-base text-muted-foreground mb-4">
-                Your registration has been confirmed for {eventTitle}
+              <h3 className="text-xl font-bold mb-1">
+                {paymentMethod === 'upi' ? 'Payment Submitted!' : 'Payment Successful!'}
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                {paymentMethod === 'upi'
+                  ? 'Your UPI payment is pending admin confirmation. An email has been sent to the admin.'
+                  : `Your registration is confirmed for ${eventTitle}. Admin has been notified.`}
               </p>
-              <div className="p-3 sm:p-4 bg-muted rounded-lg space-y-2">
+              <div className="p-4 bg-muted rounded-lg space-y-2 text-left">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Transaction ID</span>
-                  <span className="font-mono font-semibold">{transactionId}</span>
+                  <span className="font-mono font-semibold text-xs">{transactionId}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Amount Paid</span>
-                  <span className="font-semibold">₹{(amount * 1.02).toFixed(2)}</span>
+                  <span className="text-muted-foreground">Amount</span>
+                  <span className="font-semibold">₹{total.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Payment Method</span>
-                  <span className="font-semibold capitalize">{paymentMethod === 'card' ? 'Card' : 'UPI / Wallet'}</span>
+                  <span className="text-muted-foreground">Method</span>
+                  <span className="font-semibold">{paymentMethod === 'upi' ? 'UPI' : 'Card'}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Status</span>
-                  <span className="font-semibold text-green-600">Completed</span>
+                  <span className="text-muted-foreground">Admin Notified</span>
+                  <span className="font-semibold text-green-600">✓ Email Sent</span>
                 </div>
               </div>
             </div>
-            <Button onClick={handleClose} className="w-full text-sm sm:text-base">
-              Done
-            </Button>
+            <Button onClick={handleClose} className="w-full">Done</Button>
           </div>
         )}
       </DialogContent>
