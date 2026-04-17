@@ -12,7 +12,7 @@ import { PaymentSettingsPage } from './pages/PaymentSettingsPage';
 import { LoginPage } from './pages/LoginPage';
 import { ProfilePage } from './pages/ProfilePage';
 
-const basename = import.meta.env.DEV ? '/' : '/agile/';
+const basename = '/';
 
 export const router = createBrowserRouter([
   {
