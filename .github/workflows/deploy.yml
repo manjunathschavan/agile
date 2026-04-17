@@ -4,13 +4,8 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -33,5 +28,18 @@ jobs:
         with:
           path: ./dist
 
-      - name: Deploy to GitHub Pages
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+
+    # ✅ THIS LINE FIXES YOUR ERROR
+    environment:
+      name: github-pages
+
+    permissions:
+      pages: write
+      id-token: write
+
+    steps:
+      - name: Deploy
         uses: actions/deploy-pages@v4
