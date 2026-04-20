@@ -16,7 +16,7 @@ function figmaAssetResolver() {
 }
 
 export default defineConfig(() => ({
-  base: '/',
+  base: process.env.GITHUB_ACTIONS ? '/eventmanagement/' : '/',
   plugins: [
     figmaAssetResolver(),
     react(),
