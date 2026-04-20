@@ -16,7 +16,7 @@ function figmaAssetResolver() {
 }
 
 export default defineConfig(() => ({
-  base: process.env.GITHUB_ACTIONS ? '/agile/' : '/',
+  base: '/',
   plugins: [
     figmaAssetResolver(),
     react(),
