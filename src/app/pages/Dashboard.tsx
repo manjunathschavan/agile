@@ -95,9 +95,9 @@ export function Dashboard() {
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 sm:space-y-8">
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold mb-2">Dashboard</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-2">Dashboard 🎓</h1>
         <p className="text-sm sm:text-base text-muted-foreground">
-          Welcome back! Here's what's happening with your college clubs.
+          Welcome back! Here's what's happening with your college clubs. — v2.0
         </p>
       </div>
 
